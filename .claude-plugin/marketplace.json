@@ -1,11 +1,14 @@
 {
   "name": "explain-pr",
-  "owner": { "name": "Louis", "url": "https://github.com/llupin4" },
+  "owner": {
+    "name": "Louis",
+    "url": "https://github.com/llupin4"
+  },
   "plugins": [
     {
       "name": "explain-pr",
       "source": "./",
-      "description": "Builds an HTML explainer page for a PR, branch, or diff, with sequence diagrams, rendered diffs, and labeled design decisions.",
+      "description": "Writes an HTML page that explains a PR or branch, with sequence diagrams, colored diffs, and design reasons labeled stated or inferred.",
       "version": "0.1.0"
     }
   ]

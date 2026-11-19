@@ -1,70 +1,70 @@
 # explain-pr
 
-A Claude Code skill that turns a PR, branch, or diff into one HTML page. The page teaches the change to a reader who did not write it.
+explain-pr is a skill for Claude Code. It reads a pull request or a branch and writes one web page that explains the change. The reader does not have to know the code before they read the page.
 
-The page has these parts:
+## What the page shows
 
-- A summary and the problem context.
-- A structure map: a file tree of changed files with status badges and line counts, and a Mermaid component diagram that marks new, changed, and removed parts.
-- Before and after Mermaid sequence diagrams for each runtime flow that the change affects. Click a diagram to enlarge it.
-- A walkthrough in teaching order, with focused diffs rendered by diff2html (syntax highlighting, word-level changes, unified or side-by-side).
-- Design decisions. Each reason has a label: `stated` (the author said so, with a source) or `inferred` (deduced from the code, with evidence and a confidence level).
-- Tests, risks, and open questions for the author.
-- The full diff, collapsed, with a unified or side-by-side toggle.
+- A short summary of the change and the problem that it solves.
+- A map of the changed files, and a diagram of the parts of the system that changed.
+- Before and after diagrams that show the order of calls between parts of the system. These are sequence diagrams. Click a diagram to make it larger.
+- A step-by-step tour of the code, with colored diffs (green for added lines, red for removed lines).
+- The reason for each design choice. Each reason has a label. `stated` means that the author wrote the reason down, and the page names where. `inferred` means that the agent guessed the reason from the code, and the page shows the evidence.
+- Tests, risks, and questions for the author.
+- The full diff at the end, closed until you open it.
 
-The skill also tells the agent to run an independent review of the page with a second subagent. If the agent tool lets you pick the model, that subagent runs on Fable 5.2.
+Before the agent gives you the page, a second agent reads it and compares it to the real code. If you can choose the model, the second agent uses Fable 5.2.
 
 ## Install
 
-### As a plugin (Claude Code)
+Run these two commands in Claude Code:
 
 ```
 /plugin marketplace add llupin4/explain-pr
 /plugin install explain-pr@explain-pr
 ```
 
-If the repository is private, the machine needs git access to it (for example, `gh auth login`).
+If the repository is private, sign in to GitHub on that computer first. Use `gh auth login`.
 
-### As a plain skill
-
-Copy the skill folder into your personal or project skills folder:
+To install without the plugin system, copy the skill folder into your skills folder:
 
 ```bash
 git clone https://github.com/llupin4/explain-pr.git
-cp -r explain-pr/skills/explain-pr ~/.claude/skills/        # personal
-# or
-cp -r explain-pr/skills/explain-pr <repo>/.claude/skills/   # one project
+cp -r explain-pr/skills/explain-pr ~/.claude/skills/
 ```
 
 ## Use
 
-Ask the agent in plain words:
+Open your repository in Claude Code and ask in plain words. For example:
 
 - "Explain this branch."
 - "Explain PR 482 for the team."
-- "Write an explain-these-changes page for feature/retry-queue against main."
+- "Explain the changes on feature/retry-queue compared to main."
 
-The page goes to `.pr-explain/explain-<name>.html` in the repository. The skill adds that folder to `.git/info/exclude`, so git does not track it.
+The agent saves the page in the `.pr-explain` folder of your repository. Git ignores this folder. Open the page in a browser.
 
-## Requirements
+## What you need
 
-- Python 3.8 or later and git.
-- The GitHub CLI (`gh`), only for PR numbers.
-- A browser with internet access to cdn.jsdelivr.net to view the page. This loads Mermaid 11, diff2html 3, and highlight.js 11.
+- Python 3.8 or later.
+- Git.
+- The GitHub command line tool (`gh`). You need it only to explain a pull request by its number.
+- A browser that can reach cdn.jsdelivr.net. The page loads its diagram and diff libraries from that site.
 
-## Offline pages
+## If your network blocks cdn.jsdelivr.net
 
-If the network blocks jsDelivr, embed the libraries in the page. Do this setup step once:
+The agent can put the libraries inside the page. Then the page works without internet access. It grows to about 5 MB.
+
+Do this setup once, in the folder of this repository:
 
 ```bash
 python3 skills/explain-pr/scripts/diff_to_json.py --vendor
 ```
 
-If that download is also blocked, get the same files from npm:
+If that download also fails, get the same files from npm:
 
 ```bash
 npm i mermaid@11 diff2html@3 highlight.js@11
-V=skills/explain-pr/templates/vendor; mkdir -p $V
+V=skills/explain-pr/templates/vendor
+mkdir -p $V
 cp node_modules/mermaid/dist/mermaid.min.js $V/
 cp node_modules/diff2html/bundles/js/diff2html-ui.min.js $V/
 cp node_modules/diff2html/bundles/css/diff2html.min.css $V/
@@ -72,15 +72,17 @@ cp node_modules/highlight.js/styles/github.min.css $V/hljs-github.min.css
 cp node_modules/highlight.js/styles/github-dark.min.css $V/hljs-github-dark.min.css
 ```
 
-Then ask the agent for an offline page. It passes `--inline-vendor`, and the page grows to about 5 MB.
+After the setup, ask the agent for an offline page.
 
-## Scripts
+## Files
 
-| Script | Purpose |
+| File | What it does |
 |---|---|
-| `scripts/diff_to_json.py` | Splits the diff per file, counts lines, lists hunks (`--list`), and injects the data into the page (`--inject`). Takes `--base`, `--pr`, or `--working`. |
-| `scripts/check_page.py` | Finds broken diff references, bad hunk numbers, raw `<` or `&` in diagrams, leftover template examples, and decisions without a `stated` or `inferred` label. |
+| `skills/explain-pr/SKILL.md` | The instructions that the agent follows. |
+| `skills/explain-pr/templates/explainer.html` | The page template. |
+| `skills/explain-pr/scripts/diff_to_json.py` | Reads the diff and puts it into the page. |
+| `skills/explain-pr/scripts/check_page.py` | Finds errors in a finished page, for example a link to a file that is not in the diff. |
 
 ## License
 
-MIT. Mermaid and diff2html are MIT. highlight.js is BSD-3-Clause.
+MIT. Mermaid and diff2html use the MIT license. highlight.js uses the BSD-3-Clause license.

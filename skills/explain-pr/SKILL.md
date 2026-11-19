@@ -1,124 +1,180 @@
 ---
 name: explain-pr
-description: Builds an HTML explainer page for a PR, branch, or diff. The page has Mermaid sequence diagrams, a structure map, rendered diffs, and design decisions labeled stated or inferred. Use for "explain this PR", "explain these changes", "walk me through this branch", or a change write-up for teammates.
+description: Writes an HTML page that explains a PR, branch, or diff to a reader who does not know the code. The page has sequence diagrams, a map of changed files, colored diffs, and design reasons labeled stated or inferred. Use for "explain this PR", "explain these changes", "walk me through this branch", or a write-up of a change for teammates.
 ---
 
 # Explain PR
 
-You write one HTML page about a code change. It teaches what the change does, how it fits the system, and why it has this design. Assume that the reader does not know this part of the codebase. The page must work for a teammate who reads it alone, without the author in the room.
+You write one HTML page about a code change. The page explains what changed, how it fits the system, and why the author chose this design. The reader does not know this part of the code. The reader reads the page alone and cannot ask the author.
 
 The page has three jobs, in this order:
 
-1. Show the structure. Which parts of the system changed, and how do calls and data move through them now?
-2. Walk through the code. Show focused diffs in the order that builds understanding, not in file order.
-3. Explain the choices. For each design decision, say why, and say how you know.
+1. Show the structure. Show which parts of the system changed, and how calls and data move through them now.
+2. Walk through the code. Show the changes in the order that is easiest to learn, not in file order.
+3. Explain the choices. For each design decision, give the reason and say how you know it.
+
+In this file, `<skill-dir>` is the folder that holds this SKILL.md.
+
+Terms used in this file:
+
+- A hunk is one block of changed lines in a diff. Each hunk starts with `@@`.
+- A focused diff shows only the hunks that teach one step.
+- A flow is one runtime path, for example a request, a job, an event, or a UI action.
 
 ## Inputs
 
-Find out what to explain. If the user does not say, use the current branch against its base.
+If the user does not name a change, explain the current branch against its base branch.
 
-- A PR number or URL: run `gh pr view <n> --json title,body,baseRefName,headRefName,commits,comments,reviews,files` and `gh pr diff <n>`. Use `gh api repos/{owner}/{repo}/pulls/<n>/comments` for review comments.
-- A branch: find the base with `git merge-base origin/main HEAD` (or the default branch). Use `git log --format='%h %s%n%b' <base>..HEAD` for commit messages.
-- Uncommitted work: diff against `HEAD`.
+- For a PR number or URL, run `gh pr view <n> --json title,body,baseRefName,headRefName,commits,comments,reviews,files`.
+- For review comments on a PR, run `gh api repos/{owner}/{repo}/pulls/<n>/comments`.
+- For a branch, find the base with `git merge-base origin/main HEAD`. If the default branch is not `main`, use its name.
+- For the commit messages of a branch, run `git log --format='%h %s%n%b' <base>..HEAD`.
+- For uncommitted work, use `HEAD` as the base.
 
-If the base is truly unclear, ask one question. Otherwise, state the base you picked at the top of the page.
+If you cannot tell which base to use, ask the user one question. Otherwise, write the base that you used at the top of the page.
 
 ## Step 1: Research
 
-Read more than the diff. A diff without context produces a shallow page.
+Read more than the diff. A page made from the diff alone does not explain why.
 
-1. Run `git diff --stat -M <base>...<head>` to size the change.
-2. Read every changed file in full, not only the hunks. Read the callers and callees of changed functions, one level out.
-3. Read the PR body, commit messages, review comments, linked issues, and any ADR, design doc, or README the change touches. These are your only sources for stated reasons.
-4. Read the tests that changed or were added. Tests show the intended behavior.
-5. Note what the code did before. You need the old path to draw the "before" diagram.
+1. Run `git diff --stat -M <base>...<head>` to see the size of the change.
+2. Read each changed file in full, not only its hunks.
+3. Read the callers and callees of each changed function, one level out.
+4. Read the PR description, the commit messages, the review comments, and the linked issues.
+5. Read each design doc, ADR, or README that the change touches.
+6. Read the tests that the change adds or edits. The tests show the intended behavior.
+7. Write down what the code did before the change. You need the old path for the "before" diagrams.
 
-For a large PR (more than about 40 files or 1500 changed lines), you can split research across subagents by area. Each one returns: files read, entry points, call paths before and after, and any stated reasons with their source.
+Only the sources in items 4 and 5 can give a stated reason.
 
-## Step 2: Build the model
+If the PR has more than about 40 files or 1500 changed lines, you can split the research across subagents by area. Each subagent returns the files it read, the entry points, the call paths before and after, and each stated reason with its source.
+
+## Step 2: Plan the page
 
 Before you write HTML, write these notes for yourself:
 
 - Problem: what was wrong or missing, in two or three sentences.
-- Components: each module, service, class, or layer that the change touches. Mark each one new, changed, removed, or unchanged-but-relevant.
-- Flows: each runtime path the change affects (a request, a job, an event, a UI action). For each flow, list the participants and the messages in order, before and after.
-- Explanation order: the order in which the reader meets the changes. Usually: data model or types, then the core logic, then the wiring, then the UI or API surface, then tests. Mechanical changes (renames, imports, generated files, formatting) go last or into the full diff only.
-- Decisions: each place where the author chose one approach over a reasonable other one.
+- Components: each module, service, class, or layer that the change touches. Mark each one as new, changed, removed, or unchanged but relevant.
+- Flows: each flow that the change affects. For each flow, list the participants and the messages in order, before and after.
+- Order: the order in which the reader sees the changes. A good default is types and data model, then core logic, then wiring, then the UI or API, then tests.
+- Mechanical changes: renames, imports, generated files, and formatting. Put these last, or show them only in the full diff.
+- Decisions: each place where the author picked one approach over another good approach.
 
 ## Step 3: Label every reason
 
-This is the most important rule. Readers will repeat what the page says, so the page must not present a guess as a fact.
+This is the most important rule. Readers repeat what the page says. A guess must never look like a fact.
 
-For each design decision, write:
+For each design decision, write these parts:
 
-- Decision: what was chosen, in one sentence.
-- Reason, with a label:
-  - `stated`: the author said so. Cite the source (commit `abc123`, PR description, review comment by a named person, a doc path).
-  - `inferred`: you deduced it from the code. Name the evidence ("the old function held a lock across the network call", "the new test covers concurrent writes").
-- Alternatives: one or two other approaches that the author had available, and the tradeoff of each against the chosen one.
-- Confidence for inferred reasons: high, medium, or low.
+- Decision: what the author chose, in one sentence.
+- Reason: why the author chose it.
+- Label: `stated` or `inferred`.
+  - If a source gives the reason, use `stated`. Name the source: a commit hash, the PR description, a review comment and its author, or a doc path.
+  - If you worked out the reason from the code, use `inferred`. Name the evidence, for example "the old function held a lock during the network call".
+- Confidence: for an inferred reason, write high, medium, or low.
+- Alternatives: one or two other approaches that the author had, and what each one gains or loses against the chosen one.
 
-Never write an inferred reason in the voice of the author ("we did X because"). Write "This likely avoids X, because ...".
+Do not write an inferred reason in the voice of the author. Do not write "we did X because". Write "This probably avoids X, because ...".
 
-## Step 4: Generate the diff data
+## Step 4: Make the page file
 
-Run the helper to turn the diff into a JSON block the page can render:
+1. Copy `<skill-dir>/templates/explainer.html` to `.pr-explain/explain-<branch-or-pr>.html` at the repository root.
+2. Add `.pr-explain/` to `.git/info/exclude`, so that git ignores the page.
+3. If the user names another path for the page, use that path.
+4. Put the diff data into the page:
 
 ```bash
-python3 <skill-dir>/scripts/diff_to_json.py --base <base> --head <head> --out /tmp/explain-pr-diffs.html
+python3 <skill-dir>/scripts/diff_to_json.py --base <base> --head <head> --inject <page.html>
 ```
 
-It writes a `<script type="application/json" id="pr-diffs">` element with one patch per file, the file status list, and the line counts. It escapes the content so that it cannot break out of the script tag. Paste that element into the page where the template marks `<!-- PR-DIFFS -->`, or let the script inject it with `--inject <page.html>`.
+For a PR, use `--pr <n>` in place of `--base` and `--head`. For uncommitted work, use `--working`.
 
-To print the hunk numbers of each file, run the same command with `--list`. You need the hunk numbers for focused diffs. For a PR, use `--pr <n>` in place of `--base`. For uncommitted work, use `--working`.
+5. To see the hunk numbers of each file, run the same command with `--list` in place of `--inject <page.html>`. You need these numbers for focused diffs.
+
+The script escapes the diff text, so the diff cannot break the page. If you run it again, it replaces the old diff data.
 
 ## Step 5: Write the page
 
-In this file, `<skill-dir>` is the folder that holds this SKILL.md. Copy `<skill-dir>/templates/explainer.html` and fill it in. Keep its CSS and script. It loads Mermaid, diff2html, and highlight.js from jsDelivr.
+Fill in the template. Keep its CSS and its script. The page loads Mermaid, diff2html, and highlight.js from cdn.jsdelivr.net.
 
-The page has these sections, in this order. If a section has nothing true to say, skip it. Do not pad.
+The page has these sections, in this order. If a section has nothing true to say, delete it. Do not add filler.
 
-1. Summary. Three to five sentences: what changed, for whom, and the one idea the reader must keep. Add the base, head, file count, and line counts.
-2. Context. The problem and the relevant system background. Define each domain term at first use.
-3. Structure map.
-   - A file tree of changed files, grouped by directory, with a badge for new, modified, deleted, or renamed, and the +/- counts. Put mechanical files in a collapsed group.
-   - A Mermaid `flowchart` of the components from Step 2. Style new components and changed edges so they stand out (the template has `classDef` lines for `added`, `changed`, and `removed`).
-4. How it flows. For each affected flow, a Mermaid `sequenceDiagram` for before and one for after, side by side (`.compare` grid). If a flow is new, draw only "after" and say so. Under each pair, write two to four sentences on what moved. Use `Note over`, `alt`/`else`, `loop`, and `rect` blocks to show the important part. Keep each diagram under about 15 messages. Split larger flows. If a flow has more than five participants, use `class="compare stacked"` so the two diagrams sit one above the other at full width.
-5. Walkthrough. The changes in the order from Step 2. Each step has a short heading, one or two paragraphs, and a focused diff: `<div class="focus-diff" data-file="path/to/file.ts" data-hunks="1,3"></div>`. Show only the hunks that teach. Default to `data-format="line-by-line"`. If the reader must compare a rewritten block, use `data-format="side-by-side"`.
-6. Design decisions. One card per decision from Step 3, with its `stated` or `inferred` badge, source or evidence, alternatives, and tradeoff.
-7. Tests and verification. What the tests cover, what they do not cover, and the commands to run them.
-8. Risks and open questions. Behavior changes, migration or rollout concerns, performance, security, and anything you did not find out. Questions for the author go here.
-9. Full diff. The whole change rendered by diff2html in a collapsed `<details>` element, with the file list.
-10. Glossary. If the page uses more than about five domain terms, add this section.
+1. Summary. Write three to five sentences: what changed, for whom, and the one idea that the reader must keep. The page script adds the file count and the line counts.
+2. Context. Explain the problem and the system background. Define each domain term the first time you use it.
+3. Structure map. The page script draws the file tree from the diff data. Below the tree, draw a Mermaid `flowchart` of the components from Step 2. Use the template classes `added`, `changed`, and `removed` to color them.
+4. How it flows. For each flow, draw a Mermaid `sequenceDiagram` for before and one for after, side by side. Under each pair, write two to four sentences about what moved.
+5. Walkthrough. Show the changes in the order from Step 2. Each step has a short heading, one or two paragraphs, and a focused diff.
+6. Design decisions. Write one card for each decision from Step 3.
+7. Tests and verification. Say what the tests cover and what they do not cover. Give the commands that run them.
+8. Risks and open questions. List behavior changes, rollout or migration concerns, performance, security, and each thing that you did not find out. Put questions for the author here.
+9. Full diff. Keep the template block. It shows the whole diff, closed until the reader opens it.
+10. Glossary. If the page uses more than about five domain terms, add this section. Otherwise, delete it.
 
-### Mermaid rules
+### Diagram rules
 
-- Put each diagram in `<pre class="mermaid">`. Escape `<` as `&lt;` and `&` as `&amp;` inside it.
-- Quote labels that have spaces, parentheses, or punctuation: `A["Auth service (new)"]`.
-- In sequence diagrams, declare participants first with short aliases and no quotes: `participant API as Orders API`. Quotes show up as literal text.
-- Do not put `;` or `#` in message text. Write "number" for `#`.
-- Use the real function and endpoint names from the code in messages, so the reader can search for them.
+- If a flow is new, draw only the "after" diagram and say that the flow is new.
+- Keep each sequence diagram to about 15 messages or fewer. Split a larger flow into parts.
+- If a flow has more than five participants, use `class="compare stacked"`. Then the two diagrams sit one above the other at full width.
+- Use `Note over`, `alt`/`else`, `loop`, and `rect` blocks to point at the part that changed.
+- Put each diagram in `<pre class="mermaid">`.
+- Inside a diagram, write `<` as `&lt;` and `&` as `&amp;`.
+- In a flowchart, put quotes around a label that has spaces or punctuation: `A["Auth service (new)"]`.
+- In a sequence diagram, declare each participant first, with a short alias and no quotes: `participant API as Orders API`. Quotes show up on the page.
+- Do not put `;` or `#` in message text. Write "number" in place of `#`.
+- In messages, use the real function and endpoint names from the code, so that the reader can search for them.
+
+### Focused diff rules
+
+- A focused diff is this element: `<div class="focus-diff" data-file="path/to/file.ts" data-hunks="1,3"></div>`.
+- `data-hunks` takes hunk numbers from `--list`, for example `2` or `1,3` or `2-4`. To show the whole file, leave out `data-hunks`.
+- Show only the hunks that teach the step.
+- The default format is one column. If the reader must compare a rewritten block, add `data-format="side-by-side"`.
+
+### Decision card rules
+
+- Copy the decision card from the template for each decision.
+- Each card must have a `stated` badge or an `inferred` badge.
+- An inferred card must also have a confidence badge.
+- A stated card puts its source in the Evidence row.
 
 ### Writing rules
 
-- Write for a smart engineer who is new to this code.
-- Explain the why next to the code, not in a separate essay.
-- Use real names from the code. Wrap identifiers in `<code>`.
-- Keep paragraphs short. One idea per paragraph.
-- Do not praise the change. Describe it.
+- Write for a skilled engineer who is new to this code.
+- Put each reason next to the code that it explains.
+- Use the real names from the code. Put each name in `<code>`.
+- Keep paragraphs short, with one idea in each.
+- Describe the change. Do not praise it.
 
-## Step 6: Check the page
+## Step 6: Test the page
 
-1. Run `python3 <skill-dir>/scripts/check_page.py <page.html>`. It checks that every `data-file` exists in the diff data, every hunk index is valid, every Mermaid block is not empty and has no raw `<`, and every decision card has a `stated` or `inferred` badge. Fix all errors.
-2. If you have a browser tool, open the page and look at it. Mermaid shows "Syntax error" in place of a broken diagram. Fix any you see. If `npx` is available and you cannot open a browser, you can parse each diagram with `npx -y @mermaid-js/mermaid-cli -i diagram.mmd -o /tmp/out.svg`.
-3. Run the independent review. Start a subagent that did not write the page. If you can pick its model, use Fable 5.2 (`model: fable`). Give it the page path, the base and head, and this task:
+1. Run `python3 <skill-dir>/scripts/check_page.py <page.html>`. Fix each error that it prints.
+2. If you have a browser tool, open the page and look at each diagram. A broken diagram shows "Syntax error". Fix each one.
+3. If you have no browser tool but `npx` works, test a diagram with `npx -y @mermaid-js/mermaid-cli -i diagram.mmd -o /tmp/out.svg`.
+4. Start a review subagent that did not write the page. If you can choose its model, use Fable 5.2 (`model: fable`).
+5. Give the subagent the page path, the base, the head, and the task below.
+6. Fix each problem that the subagent finds. If you disagree with a finding, keep your text and add the point to Risks and open questions.
 
-   > Check this PR explainer against the actual diff and repository. For each claim in the Design decisions, How it flows, and Walkthrough sections: (a) is it true in the code, (b) is a reason labeled `stated` really stated in the cited source, (c) is an `inferred` reason plausible, and is its confidence right, (d) does each sequence diagram match the real call order. Report each problem with the section, the claim, the evidence, and a fix. Do not rewrite the page.
+The task for the review subagent:
 
-   Fix what it finds. If you disagree with a finding, keep your version and add the point to Risks and open questions.
+> Compare this PR explainer page with the real diff and the repository. Read the Walkthrough, How it flows, and Design decisions sections. For each claim, answer these questions:
+>
+> 1. Is the claim true in the code?
+> 2. If the reason is labeled `stated`, does the cited source really give that reason?
+> 3. If the reason is labeled `inferred`, is it believable, and is its confidence correct?
+> 4. Does each sequence diagram match the real order of calls?
+>
+> For each problem, report the section, the claim, the evidence, and a fix. Do not edit the page.
 
 ## Step 7: Deliver
 
-Save the page as `explain-<branch-or-pr>.html`. Default location: `.pr-explain/` at the repo root (add it to `.git/info/exclude` so it is not committed), unless the user names another path. Open it if you can. Tell the user the path, the number of flows and decisions covered, and any open questions for the author.
+1. If you can, open the page in a browser.
+2. Tell the user the path of the page.
+3. Tell the user how many flows and decisions the page covers.
+4. List the open questions for the author.
 
-If the page must work without internet access, run `python3 <skill-dir>/scripts/diff_to_json.py --vendor` once on a machine with access. It downloads the libraries into `templates/vendor/`. Then pass `--inline-vendor` with `--inject` to embed them in the page.
+## Offline pages
+
+If the page must work without internet access, the libraries must be inside the page.
+
+1. On a computer with internet access, run `python3 <skill-dir>/scripts/diff_to_json.py --vendor` one time. It saves the libraries in `<skill-dir>/templates/vendor/`.
+2. In Step 4, add `--inline-vendor` to the `--inject` command.

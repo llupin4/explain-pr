@@ -1,8 +1,17 @@
 {
   "name": "explain-pr",
   "version": "0.1.0",
-  "description": "Builds an HTML explainer page for a PR, branch, or diff: structure map, before/after Mermaid sequence diagrams, rendered diffs, and design decisions labeled stated or inferred.",
-  "author": { "name": "Louis", "url": "https://github.com/llupin4" },
+  "description": "Writes an HTML page that explains a PR or branch, with sequence diagrams, colored diffs, and design reasons labeled stated or inferred.",
+  "author": {
+    "name": "Louis",
+    "url": "https://github.com/llupin4"
+  },
   "license": "MIT",
-  "keywords": ["pull-request", "code-review", "documentation", "mermaid", "diff"]
+  "keywords": [
+    "pull-request",
+    "code-review",
+    "documentation",
+    "mermaid",
+    "diff"
+  ]
 }

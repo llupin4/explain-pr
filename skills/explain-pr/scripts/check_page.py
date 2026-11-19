@@ -84,6 +84,43 @@ def main():
     if not decisions:
         warnings.append("No design decisions.")
 
+    # Chapters
+    nocomment = re.sub(r"<!--.*?-->", "", page, flags=re.S)
+    parts = re.split(r'(?=<section class="chapter)', nocomment)
+    chapters = [c for c in parts if c.startswith('<section class="chapter')]
+    if not chapters:
+        errors.append("No chapters. Each topic must be a <section class=\"chapter\">.")
+    main_count = 0
+    for i, c in enumerate(chapters, 1):
+        c = c.split("</section>")[0]
+        part = re.search(r'data-part="([^"]*)"', c)
+        h2 = re.search(r"<h2>(.*?)</h2>", c, re.S)
+        name = re.sub(r"<[^>]+>", "", h2.group(1)).strip() if h2 else f"chapter {i}"
+        if not part:
+            errors.append(f"Chapter {i} ({name}) has no data-part.")
+        if not h2:
+            errors.append(f"Chapter {i} has no <h2> title.")
+        if part and part.group(1) == "Appendix":
+            continue
+        main_count += 1
+        cover = 'class="chapter cover"' in c
+        recap = 'class="recap"' in c
+        if not cover and not recap:
+            if 'class="asks"' not in c:
+                warnings.append(f"Chapter {i} ({name}) has no <p class=\"asks\"> question.")
+            if 'class="takeaway"' not in c:
+                warnings.append(f"Chapter {i} ({name}) has no takeaway.")
+        prose = re.sub(r"<(pre|script|style)\b.*?</\1>", " ", c, flags=re.S)
+        prose = re.sub(r'<div class="focus-diff"[^>]*></div>', " ", prose)
+        prose = re.sub(r"<[^>]+>", " ", prose)
+        words = len(re.findall(r"[A-Za-z0-9][\w'-]*", htmllib.unescape(prose)))
+        if words > 450:
+            warnings.append(f"Chapter {i} ({name}) has {words} words of prose. Split it, or cut it to about 400.")
+    if main_count > 25:
+        warnings.append(f"{main_count} chapters outside the Appendix. Merge chapters that answer the same question.")
+    if 0 < main_count < 4:
+        warnings.append(f"Only {main_count} chapters outside the Appendix.")
+
     # Leftover placeholders
     visible = re.sub(r"<(script|style)\b.*?</\1>", "", page, flags=re.S)
     left = re.findall(r"\{\{[^}]{0,60}\}\}", visible)
@@ -94,7 +131,7 @@ def main():
         print("warning:", w)
     for e in errors:
         print("error:", e)
-    print(f"{len(errors)} errors, {len(warnings)} warnings, {len(blocks)} diagrams, {len(decisions)} decisions")
+    print(f"{len(errors)} errors, {len(warnings)} warnings, {len(chapters)} chapters, {len(blocks)} diagrams, {len(decisions)} decisions")
     sys.exit(1 if errors else 0)
 
 

@@ -4,13 +4,18 @@ explain-pr is a skill for Claude Code. It reads a pull request or a branch and w
 
 ## What the page shows
 
-- A short summary of the change and the problem that it solves.
-- A map of the changed files, and a diagram of the parts of the system that changed.
-- Before and after diagrams that show the order of calls between parts of the system. These are sequence diagrams. Click a diagram to make it larger.
-- A step-by-step tour of the code, with colored diffs (green for added lines, red for removed lines).
+The page is a short story in chapters. You step through the chapters one at a time, like slides, with the arrow keys or the Next button. Each chapter is a page that you can scroll. Each chapter answers one question, for example "What happens now when a user submits an order?". The text, diagrams, and code in the chapter all answer that question. The chapter ends with a takeaway and a link to the next chapter.
+
+A sidebar lists the chapters in groups. To read everything as one long page, click One page or press P.
+
+The chapters cover these things, in this order:
+
+- What the change does, the problem that it solves, and a map of the parts of the system that changed.
+- One chapter for each path through the system that changed, for example a request or a background job. Each one has before and after diagrams that show the order of calls. These are sequence diagrams. Click a diagram to make it larger. Under the diagrams is the code that made the change, with colored diffs (green for added lines, red for removed lines).
+- A closer look at the parts of the code that need more explanation.
 - The reason for each design choice. Each reason has a label. `stated` means that the author wrote the reason down, and the page names where. `inferred` means that the agent guessed the reason from the code, and the page shows the evidence.
-- Tests, risks, and questions for the author.
-- The full diff at the end, closed until you open it.
+- Tests, risks, questions for the author, and three points to remember.
+- The full diff, at the end.
 
 Before the agent gives you the page, a second agent reads it and compares it to the real code. If you can choose the model, the second agent uses Fable 5.2.
 

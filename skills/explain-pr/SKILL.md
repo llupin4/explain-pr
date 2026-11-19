@@ -7,7 +7,9 @@ description: Writes an HTML page that explains a PR, branch, or diff to a reader
 
 You write one HTML page about a code change. The page explains what changed, how it fits the system, and why the author chose this design. The reader does not know this part of the code. The reader reads the page alone and cannot ask the author.
 
-The page has three jobs, in this order:
+The page is a short story in chapters. The reader steps through the chapters one at a time, like slides. Each chapter is a page that the reader can scroll. Each chapter answers one question, and everything in it serves that question.
+
+The story has three jobs, in this order:
 
 1. Show the structure. Show which parts of the system changed, and how calls and data move through them now.
 2. Walk through the code. Show the changes in the order that is easiest to learn, not in file order.
@@ -20,6 +22,8 @@ Terms used in this file:
 - A hunk is one block of changed lines in a diff. Each hunk starts with `@@`.
 - A focused diff shows only the hunks that teach one step.
 - A flow is one runtime path, for example a request, a job, an event, or a UI action.
+- A chapter is one `<section class="chapter">` in the page. It answers one question.
+- A part is a group of chapters in the sidebar. Its name is the `data-part` attribute.
 
 ## Inputs
 
@@ -49,16 +53,32 @@ Only the sources in items 4 and 5 can give a stated reason.
 
 If the PR has more than about 40 files or 1500 changed lines, you can split the research across subagents by area. Each subagent returns the files it read, the entry points, the call paths before and after, and each stated reason with its source.
 
-## Step 2: Plan the page
+## Step 2: Plan the chapters
 
 Before you write HTML, write these notes for yourself:
 
 - Problem: what was wrong or missing, in two or three sentences.
 - Components: each module, service, class, or layer that the change touches. Mark each one as new, changed, removed, or unchanged but relevant.
 - Flows: each flow that the change affects. For each flow, list the participants and the messages in order, before and after.
-- Order: the order in which the reader sees the changes. A good default is types and data model, then core logic, then wiring, then the UI or API, then tests.
-- Mechanical changes: renames, imports, generated files, and formatting. Put these last, or show them only in the full diff.
+- Mechanical changes: renames, imports, generated files, and formatting. Show these only in the full diff.
 - Decisions: each place where the author picked one approach over another good approach.
+
+Then write the chapter list. For each chapter, write the question that it answers and the answer in one sentence. Use these parts, in this order:
+
+1. Overview. The cover, the problem, and the map of the system.
+2. How it works now. One chapter for each flow. Each chapter shows the before and after diagrams and the code that makes the flow change.
+3. Inside the code. One chapter for each piece of code that needs more than the flow chapter gives. Group related hunks into one chapter, even if they are in different files.
+4. Why it is built this way. One chapter for each group of related decisions. If there are three decisions or fewer, use one chapter.
+5. Confidence. Tests, risks, and questions for the author in one chapter. Then a recap chapter with three points.
+6. Appendix. The full diff, and the glossary if the page needs one.
+
+Rules for the chapter list:
+
+- Each chapter answers one question. If you need "and" to write the question, split the chapter.
+- Order the chapters so that each one uses only ideas from the chapters before it.
+- If two chapters answer the same question, merge them.
+- Most changes need 6 to 15 chapters outside the Appendix. A small change can need fewer.
+- Give each chapter about 400 words of prose or fewer. Diagrams and diffs do not count.
 
 ## Step 3: Label every reason
 
@@ -93,22 +113,36 @@ For a PR, use `--pr <n>` in place of `--base` and `--head`. For uncommitted work
 
 The script escapes the diff text, so the diff cannot break the page. If you run it again, it replaces the old diff data.
 
-## Step 5: Write the page
+## Step 5: Write the chapters
 
-Fill in the template. Keep its CSS and its script. The page loads Mermaid, diff2html, and highlight.js from cdn.jsdelivr.net.
+Fill in the template. Keep its CSS and its script. The page loads Mermaid, diff2html, and highlight.js from cdn.jsdelivr.net. The template has one example chapter for each part. Copy a chapter to add more of the same kind. Delete an example chapter that you do not use.
 
-The page has these sections, in this order. If a section has nothing true to say, delete it. Do not add filler.
+Each chapter has this shape:
 
-1. Summary. Write three to five sentences: what changed, for whom, and the one idea that the reader must keep. The page script adds the file count and the line counts.
-2. Context. Explain the problem and the system background. Define each domain term the first time you use it.
-3. Structure map. The page script draws the file tree from the diff data. Below the tree, draw a Mermaid `flowchart` of the components from Step 2. Use the template classes `added`, `changed`, and `removed` to color them.
-4. How it flows. For each flow, draw a Mermaid `sequenceDiagram` for before and one for after, side by side. Under each pair, write two to four sentences about what moved.
-5. Walkthrough. Show the changes in the order from Step 2. Each step has a short heading, one or two paragraphs, and a focused diff.
-6. Design decisions. Write one card for each decision from Step 3.
-7. Tests and verification. Say what the tests cover and what they do not cover. Give the commands that run them.
-8. Risks and open questions. List behavior changes, rollout or migration concerns, performance, security, and each thing that you did not find out. Put questions for the author here.
-9. Full diff. Keep the template block. It shows the whole diff, closed until the reader opens it.
-10. Glossary. If the page uses more than about five domain terms, add this section. Otherwise, delete it.
+1. `data-part` on the `<section>`, set to the part name from Step 2.
+2. An `<h2>` that states the answer as a sentence, for example "Payment now happens after the response".
+3. A `<p class="asks">` that states the question, for example "What happens now when a user submits an order?".
+4. The body: short paragraphs, `<h3>` subheadings, diagrams, and focused diffs. Each item in the body serves the question.
+5. A `<p class="takeaway">` with one or two sentences that the reader must keep.
+
+The page script adds the part label above each title, the sidebar, and a "Next chapter" card at the end of each chapter. Do not write these yourself.
+
+The cover chapter and the recap chapter do not need `asks` or `takeaway`. The Appendix chapters need only a title.
+
+Inside a chapter, tie the pieces together:
+
+- Before a diagram, say what to look for in it.
+- Before a diff, say which step of the diagram it implements, for example "This code is step 3 in the diagram above".
+- If a chapter shows several diffs, add a sentence between them that says how they connect.
+
+What each part contains:
+
+1. Overview. The cover has the title sentence and two or three sentences on who the change is for. It also has the key idea and one sentence on the route through the chapters. The page script adds the file count and line counts. The problem chapter defines each domain term. The map chapter has the Mermaid `flowchart` of the components and the file tree. Color the components with the template classes `added`, `changed`, and `removed`. The page script draws the file tree.
+2. How it works now. Each flow chapter has a Mermaid `sequenceDiagram` for before and one for after, side by side. Under the diagrams, add the focused diff that makes the flow change.
+3. Inside the code. Each chapter walks through its hunks in order, with a short `<h3>` for each piece.
+4. Why it is built this way. Each chapter has one decision card for each decision.
+5. Confidence. Say what the tests cover and what they do not cover. Give the commands that run them. List behavior changes, rollout or migration concerns, performance, security, and each thing that you did not find out. Put questions for the author last. The recap chapter has three points.
+6. Appendix. Keep the full diff chapter from the template. If the page uses more than about five domain terms, keep the glossary. Otherwise, delete it.
 
 ### Diagram rules
 
@@ -132,7 +166,7 @@ The page has these sections, in this order. If a section has nothing true to say
 
 ### Decision card rules
 
-- Copy the decision card from the template for each decision.
+- Copy the decision card from the template for each decision. Put the decision in one line in its `<h3>`.
 - Each card must have a `stated` badge or an `inferred` badge.
 - An inferred card must also have a confidence badge.
 - A stated card puts its source in the Evidence row.
@@ -147,7 +181,7 @@ The page has these sections, in this order. If a section has nothing true to say
 
 ## Step 6: Test the page
 
-1. Run `python3 <skill-dir>/scripts/check_page.py <page.html>`. Fix each error that it prints.
+1. Run `python3 <skill-dir>/scripts/check_page.py <page.html>`. Fix each error that it prints. Read each warning. If a chapter is too long or has no question, fix it.
 2. If you have a browser tool, open the page and look at each diagram. A broken diagram shows "Syntax error". Fix each one.
 3. If you have no browser tool but `npx` works, test a diagram with `npx -y @mermaid-js/mermaid-cli -i diagram.mmd -o /tmp/out.svg`.
 4. Start a review subagent that did not write the page. If you can choose its model, use Fable 5.2 (`model: fable`).
@@ -156,20 +190,20 @@ The page has these sections, in this order. If a section has nothing true to say
 
 The task for the review subagent:
 
-> Compare this PR explainer page with the real diff and the repository. Read the Walkthrough, How it flows, and Design decisions sections. For each claim, answer these questions:
+> Compare this PR explainer page with the real diff and the repository. Read the chapters in the parts How it works now, Inside the code, and Why it is built this way. For each claim, answer these questions:
 >
 > 1. Is the claim true in the code?
 > 2. If the reason is labeled `stated`, does the cited source really give that reason?
 > 3. If the reason is labeled `inferred`, is it believable, and is its confidence correct?
 > 4. Does each sequence diagram match the real order of calls?
 >
-> For each problem, report the section, the claim, the evidence, and a fix. Do not edit the page.
+> For each problem, report the chapter, the claim, the evidence, and a fix. Do not edit the page.
 
 ## Step 7: Deliver
 
 1. If you can, open the page in a browser.
 2. Tell the user the path of the page.
-3. Tell the user how many flows and decisions the page covers.
+3. Tell the user how many chapters, flows, and decisions the page covers.
 4. List the open questions for the author.
 
 ## Offline pages

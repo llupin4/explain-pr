@@ -105,13 +105,14 @@ def vendor_block():
     missing = [n for n in VENDOR if not (VENDOR_DIR / n).exists()]
     if missing:
         sys.exit(f"Missing vendor files {missing}. Run with --vendor first.")
-    css = "\n".join((VENDOR_DIR / n).read_text() for n in
-                    ["diff2html.min.css", "hljs-github.min.css"])
+    css = (VENDOR_DIR / "diff2html.min.css").read_text()
+    light = (VENDOR_DIR / "hljs-github.min.css").read_text()
     dark = (VENDOR_DIR / "hljs-github-dark.min.css").read_text()
     js = "\n".join((VENDOR_DIR / n).read_text().replace("</script", "<\\/script")
                    for n in ["mermaid.min.js", "diff2html-ui.min.js"])
     return ("<!-- VENDOR-START -->\n<style>" + css + "</style>\n"
-            "<style media=\"(prefers-color-scheme: dark)\">" + dark + "</style>\n"
+            "<style id=\"hljs-light\">" + light + "</style>\n"
+            "<style id=\"hljs-dark\" media=\"not all\">" + dark + "</style>\n"
             "<script>" + js + "</script>\n<!-- VENDOR-END -->")
 
 

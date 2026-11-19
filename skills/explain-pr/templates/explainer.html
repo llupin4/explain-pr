@@ -4,10 +4,20 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{{TITLE}}: explained</title>
+<script>
+  // Theme: "auto" follows the system, or "light" / "dark". Set early to avoid a flash.
+  (function () {
+    var pref = "auto";
+    try { pref = localStorage.getItem("explain-pr-theme") || "auto"; } catch (e) {}
+    var sys = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+    document.documentElement.dataset.themePref = pref;
+    document.documentElement.dataset.theme = pref === "auto" ? sys : pref;
+  })();
+</script>
 <!-- VENDOR-START -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/diff2html@3/bundles/css/diff2html.min.css">
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11/styles/github.min.css" media="(prefers-color-scheme: light)">
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11/styles/github-dark.min.css" media="(prefers-color-scheme: dark)">
+<link rel="stylesheet" id="hljs-light" href="https://cdn.jsdelivr.net/npm/highlight.js@11/styles/github.min.css">
+<link rel="stylesheet" id="hljs-dark" href="https://cdn.jsdelivr.net/npm/highlight.js@11/styles/github-dark.min.css" media="not all">
 <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/diff2html@3/bundles/js/diff2html-ui.min.js"></script>
 <!-- VENDOR-END -->
@@ -21,9 +31,10 @@
     --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
     --side: 270px; --bar: 56px;
   }
-  @media (prefers-color-scheme: dark) {
-    :root { --bg: #15171b; --panel: #1c1f24; --ink: #e6e6e6; --muted: #9aa1ad; --line: #2e323a;
-            --accent: #7c9cff; --accent-soft: rgba(124,156,255,.10); --code-bg: #23262d; }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #15171b; --panel: #1c1f24; --ink: #e6e6e6; --muted: #9aa1ad; --line: #2e323a;
+    --accent: #7c9cff; --accent-soft: rgba(124,156,255,.10); --code-bg: #23262d;
   }
   * { box-sizing: border-box; }
   html, body { margin: 0; }
@@ -86,10 +97,14 @@
 
   .navbar { position: sticky; bottom: 0; height: var(--bar); display: flex; align-items: center; gap: 14px; padding: 0 22px; background: color-mix(in srgb, var(--bg) 88%, transparent); backdrop-filter: blur(6px); border-top: 1px solid var(--line); z-index: 5; }
   .navbar button { font: 600 14px var(--sans); background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: 8px; padding: 7px 14px; cursor: pointer; }
+  .float-theme { font: 500 13px var(--sans); background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; cursor: pointer; }
   .navbar button:disabled { opacity: .35; cursor: default; }
   .navbar .count { font: 13px var(--mono); color: var(--muted); min-width: 64px; text-align: center; }
   .navbar .progress { flex: 1; height: 4px; background: var(--line); border-radius: 4px; overflow: hidden; }
   .navbar .progress > div { height: 100%; background: var(--accent); width: 0; transition: width .2s; }
+  .navbar .theme-cycle { font-weight: 500; font-size: 13px; padding: 6px 10px; }
+  .float-theme { position: fixed; right: 16px; bottom: 16px; z-index: 6; display: none; }
+  body.mode-page .float-theme { display: block; }
   .navbar .next-title { color: var(--muted); font-size: 13px; max-width: 34ch; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   @media (max-width: 900px) {
     .shell { grid-template-columns: 1fr; }
@@ -164,8 +179,13 @@
     <button data-mode="chapters" class="on">Chapters</button>
     <button data-mode="page">One page</button>
   </div>
+  <div class="modes themes" role="group" aria-label="Theme">
+    <button data-theme-pick="auto">Auto</button>
+    <button data-theme-pick="light">Light</button>
+    <button data-theme-pick="dark">Dark</button>
+  </div>
   <nav id="toc"></nav>
-  <div class="keys"><kbd>←</kbd> <kbd>→</kbd> chapter · <kbd>Home</kbd> start · <kbd>P</kbd> one page<br>Click a diagram to enlarge it.</div>
+  <div class="keys"><kbd>←</kbd> <kbd>→</kbd> chapter · <kbd>Home</kbd> start · <kbd>P</kbd> one page · <kbd>T</kbd> theme<br>Click a diagram to enlarge it.</div>
 </aside>
 
 <div class="stage-wrap">
@@ -364,15 +384,18 @@ sequenceDiagram
   <button id="next" aria-label="Next chapter">Next →</button>
   <div class="progress"><div id="bar"></div></div>
   <span class="next-title" id="next-title"></span>
+  <button id="theme-cycle" class="theme-cycle" aria-label="Change theme"></button>
 </div>
 </div>
 </div>
 
+<button id="theme-float" class="float-theme navbar-like" aria-label="Change theme"></button>
 <!-- PR-DIFFS -->
 
 <script>
 (function () {
-  const dark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+  const root = document.documentElement;
+  const isDark = () => root.dataset.theme === "dark";
   const dataEl = document.getElementById("pr-diffs");
   const data = dataEl ? JSON.parse(dataEl.textContent) : { files: [], patches: {}, totals: {} };
   const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -417,7 +440,7 @@ sequenceDiagram
   const d2hConfig = fmt => ({
     outputFormat: fmt || "line-by-line", drawFileList: false, matching: "lines",
     highlight: true, synchronisedScroll: true, fileContentToggle: false,
-    stickyFileHeaders: false, colorScheme: dark ? "dark" : "light",
+    stickyFileHeaders: false, colorScheme: isDark() ? "dark" : "light",
   });
   function draw(target, diffText, cfg) {
     if (typeof Diff2HtmlUI === "undefined") {
@@ -440,7 +463,7 @@ sequenceDiagram
     const chosen = want.map(n => parts[n - 1]).filter(Boolean);
     return chosen.length ? header + chosen.join("") : null;
   }
-  document.querySelectorAll(".focus-diff").forEach(el => {
+  const drawFocusDiffs = () => document.querySelectorAll(".focus-diff").forEach(el => {
     const file = el.dataset.file;
     const patch = data.patches[file];
     const head = `<div class="fd-head">${esc(file)}${el.dataset.hunks ? " · hunk " + esc(el.dataset.hunks) : ""}</div>`;
@@ -450,6 +473,7 @@ sequenceDiagram
     el.innerHTML = head + "<div></div>";
     draw(el.lastChild, sub, d2hConfig(el.dataset.format));
   });
+  drawFocusDiffs();
   const full = document.querySelector("details.full");
   const fullBody = document.getElementById("full-diff-body");
   const allPatches = () => Object.values(data.patches).join("");
@@ -535,13 +559,13 @@ sequenceDiagram
     mode = m;
     document.body.classList.toggle("mode-chapters", m === "chapters");
     document.body.classList.toggle("mode-page", m === "page");
-    document.querySelectorAll(".modes button").forEach(b => b.classList.toggle("on", b.dataset.mode === m));
+    document.querySelectorAll(".modes button[data-mode]").forEach(b => b.classList.toggle("on", b.dataset.mode === m));
     chapters.forEach((s, k) => s.classList.toggle("active", m === "chapters" && k === cur));
     if (m === "page") chapters[cur].scrollIntoView({ block: "start" }); else go(cur, { instant: true });
   }
   $("prev").addEventListener("click", () => go(cur - 1));
   $("next").addEventListener("click", () => go(cur + 1));
-  document.querySelectorAll(".modes button").forEach(b => b.addEventListener("click", () => setMode(b.dataset.mode)));
+  document.querySelectorAll(".modes button[data-mode]").forEach(b => b.addEventListener("click", () => setMode(b.dataset.mode)));
   document.addEventListener("keydown", e => {
     if (e.target.closest("input, textarea, select") || e.metaKey || e.ctrlKey || e.altKey) return;
     if (document.querySelector(".zoom-overlay")) { if (e.key === "Escape") document.querySelector(".zoom-overlay").remove(); return; }
@@ -560,13 +584,53 @@ sequenceDiagram
   const start = parseInt((location.hash || "").slice(1), 10);
   go(Number.isFinite(start) ? start - 1 : 0, { instant: true });
 
+  // ---------- Theme ----------
+  const themeNames = { auto: "Auto", light: "Light", dark: "Dark" };
+  const order = ["auto", "light", "dark"];
+  const sysDark = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)") : null;
+  function applyTheme(pref, redraw) {
+    const theme = pref === "auto" ? (sysDark && sysDark.matches ? "dark" : "light") : pref;
+    const changed = theme !== root.dataset.theme;
+    root.dataset.themePref = pref;
+    root.dataset.theme = theme;
+    try { localStorage.setItem("explain-pr-theme", pref); } catch (e) {}
+    const hl = document.getElementById("hljs-light"), hd = document.getElementById("hljs-dark");
+    if (hl) hl.media = theme === "dark" ? "not all" : "all";
+    if (hd) hd.media = theme === "dark" ? "all" : "not all";
+    document.querySelectorAll("[data-theme-pick]").forEach(b => b.classList.toggle("on", b.dataset.themePick === pref));
+    const label = (theme === "dark" ? "☾ " : "☀ ") + themeNames[pref];
+    ["theme-cycle", "theme-float"].forEach(id => { const b = document.getElementById(id); if (b) b.textContent = label; });
+    if (redraw && changed) {
+      drawFocusDiffs();
+      if (fullBody && fullBody.dataset.drawn) drawFull();
+      if (window.__renderMermaid) window.__renderMermaid();
+    }
+  }
+  const cycleTheme = () => applyTheme(order[(order.indexOf(root.dataset.themePref) + 1) % order.length], true);
+  document.querySelectorAll("[data-theme-pick]").forEach(b => b.addEventListener("click", () => applyTheme(b.dataset.themePick, true)));
+  ["theme-cycle", "theme-float"].forEach(id => { const b = document.getElementById(id); if (b) b.addEventListener("click", cycleTheme); });
+  document.addEventListener("keydown", e => {
+    if (e.target.closest("input, textarea, select") || e.metaKey || e.ctrlKey || e.altKey) return;
+    if (e.key === "t" || e.key === "T") cycleTheme();
+  });
+  if (sysDark && sysDark.addEventListener) sysDark.addEventListener("change", () => { if (root.dataset.themePref === "auto") applyTheme("auto", true); });
+  applyTheme(root.dataset.themePref || "auto", false);
+
   // ---------- Mermaid ----------
   if (typeof mermaid !== "undefined") {
-    mermaid.initialize({ startOnLoad: false, theme: dark ? "dark" : "default", securityLevel: "strict",
-      sequence: { showSequenceNumbers: true, mirrorActors: false, actorMargin: 30, messageMargin: 32,
-        actorFontSize: 15, messageFontSize: 15, noteFontSize: 14, boxMargin: 8, width: 120 },
-      flowchart: { curve: "basis" } });
-    mermaid.run({ querySelector: "pre.mermaid" });
+    document.querySelectorAll("pre.mermaid").forEach(pre => { pre.dataset.src = pre.textContent; });
+    window.__renderMermaid = () => {
+      mermaid.initialize({ startOnLoad: false, theme: isDark() ? "dark" : "default", securityLevel: "strict",
+        sequence: { showSequenceNumbers: true, mirrorActors: false, actorMargin: 30, messageMargin: 32,
+          actorFontSize: 15, messageFontSize: 15, noteFontSize: 14, boxMargin: 8, width: 120 },
+        flowchart: { curve: "basis" } });
+      document.querySelectorAll("pre.mermaid").forEach(pre => {
+        pre.removeAttribute("data-processed");
+        pre.textContent = pre.dataset.src;
+      });
+      return mermaid.run({ querySelector: "pre.mermaid" });
+    };
+    window.__renderMermaid();
     document.addEventListener("click", e => {
       const open = document.querySelector(".zoom-overlay");
       if (open) { open.remove(); return; }

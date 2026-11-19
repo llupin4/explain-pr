@@ -8,6 +8,8 @@ The page is a short story in chapters. You step through the chapters one at a ti
 
 A sidebar lists the chapters in groups. To read everything as one long page, click One page or press P.
 
+The page has a light theme and a dark theme. Auto follows the setting of your computer. To pick one, use the Auto, Light, and Dark buttons in the sidebar, or press T. The page remembers your choice in that browser.
+
 The chapters cover these things, in this order:
 
 - What the change does, the problem that it solves, and a map of the parts of the system that changed.

@@ -115,7 +115,7 @@ The script escapes the diff text, so the diff cannot break the page. If you run 
 
 ## Step 5: Write the chapters
 
-Fill in the template. Keep its CSS and its script. The page loads Mermaid, diff2html, and highlight.js from cdn.jsdelivr.net. The template has one example chapter for each part. Copy a chapter to add more of the same kind. Delete an example chapter that you do not use.
+Fill in the template. Keep its CSS and its script. The script runs the chapter navigation and the light and dark theme switch. The page loads Mermaid, diff2html, and highlight.js from cdn.jsdelivr.net. The template has one example chapter for each part. Copy a chapter to add more of the same kind. Delete an example chapter that you do not use.
 
 Each chapter has this shape:
 
